@@ -1,3 +1,10 @@
 keys/
 message.pdf
 key_gen_logs.txt
+enc_dec_analayze_logs.txt
+dec_key1.pdf
+dec_key2.pdf
+dec_key3.pdf
+enc_key1.bin
+enc_key2.bin
+enc_key3.bin

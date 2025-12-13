@@ -101,6 +101,21 @@ def tonelli_shanks(N, p):
         t = (t * c) % p
         R = (R * b) % p
 
+def precompute_roots(N, factor_base):
+    sqrt_n = math.ceil(N**(1/2))
+
+    root_table = {}
+
+    for p in factor_base:
+        r1, r2 = tonelli_shanks(N % p, p)
+        roots = {
+            (r1 - sqrt_n) % p,
+            (r2 - sqrt_n) % p
+        }
+        root_table[p] = roots
+
+    return root_table
+
 def find_roots(N, p, sqrt_n):
     r1, r2 = tonelli_shanks(N % p, p)
     return [
@@ -108,24 +123,27 @@ def find_roots(N, p, sqrt_n):
         (r2 - sqrt_n) % p
     ]
     
-def sieve(sieving_interval_max, N, factor_base):
-    sqrt_n = math.ceil(N**(1/2))
-    sieving_interval = range(0, sieving_interval_max + 1)
-    sieving_table = {}
-    for step_size in sieving_interval:
-        Q_val = compute_Q_function(sqrt_n, step_size, N)
-        sieving_table[step_size] = {"q": Q_val, "log_q": math.log(abs(Q_val))}
-    sieving_table_keys = list(sieving_table.keys())
+def sieve_range(x_start, x_end, N, factor_base, root_table):
+    sqrt_n = math.ceil(N**0.5)
+    sieving_table = {
+        x: {
+            "q": compute_Q_function(sqrt_n, x, N),
+            "log_q": math.log(abs(compute_Q_function(sqrt_n, x, N)))
+        }
+        for x in range(x_start, x_end)
+    }
+
     for p in factor_base:
-        roots = set(find_roots(N, p, sqrt_n))
-        if len(roots) == 0:
-            print(f"Sieving interval is too small for the prime {p} to find any root indexes.")
         update_val = math.log(p)
+        roots = set(root_table[p])
+
         for root in roots:
-            start = root % p
-            for i in range(start, len(sieving_table_keys), p):
-                sieving_table[sieving_table_keys[i]]["log_q"] -= update_val
+            x0 = x_start + ((root - x_start) % p)
+            for x in range(x0, x_end, p):
+                sieving_table[x]["log_q"] -= update_val
+
     return sieving_table
+
 
 def pick_keys_by_Q(sieving_table, factor_base, threshold=10):
     keys = list(sieving_table.keys())
@@ -141,13 +159,24 @@ def pick_keys_by_Q(sieving_table, factor_base, threshold=10):
 if __name__ == '__main__':
     N = 68720000989                             # n to be factored
     beta = compute_bound(N)                     # smoothness factor
-    factor_base = get_factor_base(beta, N)
-    sieving_table = sieve(1000000, N, factor_base)
-    relation_keys = pick_keys_by_Q(sieving_table, factor_base, math.log(beta))
+    block_size = 100000                         # sieving block size
+    x_start = 0
+
+    factor_base = get_factor_base(beta, N)                                          # factor base
+    root_table = precompute_roots(N, factor_base)                                   # sieving roots for each prime
+    number_of_needed_relations = len(factor_base) + 5                               # heuristic for the number of needed smooth nums
+
+    Q_vals = []
+    while len(Q_vals) < number_of_needed_relations:
+        sieving_table = sieve_range(x_start, x_start + block_size, N, factor_base, root_table)
+        relation_keys = pick_keys_by_Q(sieving_table, factor_base, math.log(beta))
+        Q_vals = Q_vals + [(key, sieving_table[key]["q"]) for key in relation_keys]
+        x_start = x_start + block_size
+
     for key in relation_keys:
         print(f"{sieving_table[key]['log_q']:.2f}", end=' ')
     print()
-    print(len(relation_keys))
+    print(len(Q_vals))
     print(len(factor_base))    
 
     

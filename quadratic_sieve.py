@@ -1,4 +1,5 @@
 import math
+from sympy import Matrix, GF
 
 def gcd(a, b):
     # euclidean algorithm
@@ -25,14 +26,14 @@ def check_euler_criterion(n, p):
         return True
     return False
 
-def is_smooth(Q, factor_base):
+def factor_and_check_smoothness(Q, factor_base):
     Q = abs(Q)
+    factor_dict = {p: 0 for p in factor_base}
     for p in factor_base:
         while Q % p == 0:
             Q = Q // p
-    if Q == 1:
-        return True
-    return False
+            factor_dict[p] = factor_dict[p] + 1
+    return factor_dict, Q == 1
 
 def compute_bound(N):
     # B = exp((1/2 + o(1)) * sqrt(log(N) * log(log(N)))) where o(1) is assumed 0
@@ -144,17 +145,43 @@ def sieve_range(x_start, x_end, N, factor_base, root_table):
 
     return sieving_table
 
-
-def pick_keys_by_Q(sieving_table, factor_base, threshold=10):
+def find_and_factor_smooth_numbers(sieving_table, factor_base, threshold=10):
     keys = list(sieving_table.keys())
     keys = [key for key in keys if sieving_table[key]["log_q"] < threshold]
-    smooth_q_keys = []
+    factored_smooth_numbers = {}
     for key in keys:
         q_val = sieving_table[key]["q"]
-        if is_smooth(q_val, factor_base):
-            smooth_q_keys.append(key)
-    return smooth_q_keys
+        factor_dict, is_smooth = factor_and_check_smoothness(q_val, factor_base)
+        if is_smooth:
+            factored_smooth_numbers[key] = factor_dict
+    return factored_smooth_numbers
                 
+
+def try_dependency(dep_vec, factored_smooth_nums, factor_base, N):
+    sqrt_n = math.ceil(N ** (1/2))
+
+    X = 1
+    prime_exp_sum = {p: 0 for p in factor_base}
+
+    for i, bit in enumerate(dep_vec):
+        if bit == 1:
+            x_i, factor_dict = factored_smooth_nums[i]
+
+            # Build X
+            X = (X * (sqrt_n + x_i)) % N
+
+            # Accumulate prime exponents
+            for p in factor_base:
+                prime_exp_sum[p] += factor_dict[p]
+
+    # Build Y
+    Y = 1
+    for p, exp in prime_exp_sum.items():
+        Y *= p ** (exp // 2)
+
+    g = gcd(abs(X - Y) % N, N)
+    return g
+
 
 if __name__ == '__main__':
     N = 68720000989                             # n to be factored
@@ -164,19 +191,43 @@ if __name__ == '__main__':
 
     factor_base = get_factor_base(beta, N)                                          # factor base
     root_table = precompute_roots(N, factor_base)                                   # sieving roots for each prime
-    number_of_needed_relations = len(factor_base) + 5                               # heuristic for the number of needed smooth nums
+    number_of_needed_relations = len(factor_base) + 15                              # heuristic for the number of needed smooth nums
+    threshold = math.log(beta)
 
-    Q_vals = []
-    while len(Q_vals) < number_of_needed_relations:
+    factored_smooth_nums = []
+    while len(factored_smooth_nums) < number_of_needed_relations:
         sieving_table = sieve_range(x_start, x_start + block_size, N, factor_base, root_table)
-        relation_keys = pick_keys_by_Q(sieving_table, factor_base, math.log(beta))
-        Q_vals = Q_vals + [(key, sieving_table[key]["q"]) for key in relation_keys]
+        smooth_number_dict = find_and_factor_smooth_numbers(sieving_table, factor_base, threshold)
+        factored_smooth_nums = factored_smooth_nums + [(off_set, factored_dict) for off_set, factored_dict in smooth_number_dict.items()]
         x_start = x_start + block_size
 
-    for key in relation_keys:
-        print(f"{sieving_table[key]['log_q']:.2f}", end=' ')
-    print()
-    print(len(Q_vals))
-    print(len(factor_base))    
-
+    parity_matrix = []
+    for _, factor_dict in factored_smooth_nums:
+        row = [factor_dict[p] % 2 for p in factor_base]
+        parity_matrix.append(row)    
     
+    M = Matrix(parity_matrix)
+    print("Solving for Linear Dependencies (Nullspace over GF(2))...")
+    # We need the Nullspace of the TRANSPOSE.
+    # We want to find a combination of ROWS that sums to zero. 
+    # M.T * v = 0  <==>  v * M = 0
+    null_basis = M.T.nullspace()
+    print(f"Found {len(null_basis)} linear dependencies.")
+
+    for i, basis_vec in enumerate(null_basis):
+        # SymPy returns vectors with GF(2) elements, convert to standard int list
+        dep_vec = [int(x) for x in basis_vec]
+        
+        # Check if this dependency yields a factor
+        factor = try_dependency(dep_vec, factored_smooth_nums, factor_base, N)
+        
+        if factor > 1 and factor < N:
+            print("---------------------------------------")
+            print(f"SUCCESS! N = {N}")
+            print(f"Factors found: {factor} * {N // factor}")
+            print("---------------------------------------")
+            break
+    else:
+        print("Dependencies found, but all were trivial (X = +/- Y).")
+        print("Try increasing the 'number_of_needed_relations' or 'block_size'.")
+        

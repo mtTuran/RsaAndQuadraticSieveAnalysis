@@ -1,5 +1,7 @@
 import math
 from sympy import Matrix, GF
+import time
+
 
 def gcd(a, b):
     # euclidean algorithm
@@ -45,7 +47,7 @@ def compute_bound(N):
     coefficient = 0.5
     B = math.exp(coefficient * root_term)
 
-    return int(B)
+    return max(int(B), 200)
 
 def compute_Q_function(sqrt_n, step_size, N):
     return ((sqrt_n + step_size)**2) - N
@@ -126,13 +128,11 @@ def find_roots(N, p, sqrt_n):
     
 def sieve_range(x_start, x_end, N, factor_base, root_table):
     sqrt_n = math.ceil(N**0.5)
-    sieving_table = {
-        x: {
-            "q": compute_Q_function(sqrt_n, x, N),
-            "log_q": math.log(abs(compute_Q_function(sqrt_n, x, N)))
-        }
-        for x in range(x_start, x_end)
-    }
+    sieving_table = dict()
+
+    for x in range(x_start, x_end):
+        Q = compute_Q_function(sqrt_n, x, N)
+        sieving_table[x] = {"q": Q, "log_q": math.log(abs(Q))}
 
     for p in factor_base:
         update_val = math.log(p)
@@ -145,7 +145,7 @@ def sieve_range(x_start, x_end, N, factor_base, root_table):
 
     return sieving_table
 
-def find_and_factor_smooth_numbers(sieving_table, factor_base, threshold=10):
+def find_and_factor_smooth_numbers(sieving_table, factor_base, threshold=1):
     keys = list(sieving_table.keys())
     keys = [key for key in keys if sieving_table[key]["log_q"] < threshold]
     factored_smooth_numbers = {}
@@ -156,7 +156,6 @@ def find_and_factor_smooth_numbers(sieving_table, factor_base, threshold=10):
             factored_smooth_numbers[key] = factor_dict
     return factored_smooth_numbers
                 
-
 def try_dependency(dep_vec, factored_smooth_nums, factor_base, N):
     sqrt_n = math.ceil(N ** (1/2))
 
@@ -184,50 +183,82 @@ def try_dependency(dep_vec, factored_smooth_nums, factor_base, N):
 
 
 if __name__ == '__main__':
-    N = 68720000989                             # n to be factored
-    beta = compute_bound(N)                     # smoothness factor
-    block_size = 100000                         # sieving block size
-    x_start = 0
+    numbers_to_be_factored = [643020317, 17187209159, 68720000989]
+    number_of_tests = 100
+    total_time_taken_per_number = {N: 0 for N in numbers_to_be_factored}
+    factored_numbers = {N: [] for N in numbers_to_be_factored}
 
-    factor_base = get_factor_base(beta, N)                                          # factor base
-    root_table = precompute_roots(N, factor_base)                                   # sieving roots for each prime
-    number_of_needed_relations = len(factor_base) + 15                              # heuristic for the number of needed smooth nums
-    threshold = math.log(beta)
+    with open("quadratic_sieve_analyze_logs.txt", "w") as f:
+        log = f"Number of Tests performed on each number: {number_of_tests}\n-----------------------------"
+        print(log)
+        f.write(log)
 
-    factored_smooth_nums = []
-    while len(factored_smooth_nums) < number_of_needed_relations:
-        sieving_table = sieve_range(x_start, x_start + block_size, N, factor_base, root_table)
-        smooth_number_dict = find_and_factor_smooth_numbers(sieving_table, factor_base, threshold)
-        factored_smooth_nums = factored_smooth_nums + [(off_set, factored_dict) for off_set, factored_dict in smooth_number_dict.items()]
-        x_start = x_start + block_size
+    for N in numbers_to_be_factored:
+        beta = compute_bound(N)                                         # smoothness factor
+        print(f"Performing {number_of_tests} tests for the number '{N}' with a smoothness factor B: {beta}.")
 
-    parity_matrix = []
-    for _, factor_dict in factored_smooth_nums:
-        row = [factor_dict[p] % 2 for p in factor_base]
-        parity_matrix.append(row)    
-    
-    M = Matrix(parity_matrix)
-    print("Solving for Linear Dependencies (Nullspace over GF(2))...")
-    # We need the Nullspace of the TRANSPOSE.
-    # We want to find a combination of ROWS that sums to zero. 
-    # M.T * v = 0  <==>  v * M = 0
-    null_basis = M.T.nullspace()
-    print(f"Found {len(null_basis)} linear dependencies.")
+        for _ in range(number_of_tests):
+            start_time = time.perf_counter()            
 
-    for i, basis_vec in enumerate(null_basis):
-        # SymPy returns vectors with GF(2) elements, convert to standard int list
-        dep_vec = [int(x) for x in basis_vec]
+            block_size = 100000                                         # sieving block size
+            x_start = 0                                                 # sieving inteval start
+
+            factor_base = get_factor_base(beta, N)                      # factor base
+            root_table = precompute_roots(N, factor_base)               # sieving roots for each prime
+            number_of_needed_relations = len(factor_base) + 5          # heuristic for the number of needed smooth nums
+            threshold = math.log(beta) * 1.5                            # heuristic for the smooth number detection via sieving
+
+            factored_smooth_nums = []
+            while len(factored_smooth_nums) < number_of_needed_relations:
+                sieving_table = sieve_range(x_start, x_start + block_size, N, factor_base, root_table)
+                smooth_number_dict = find_and_factor_smooth_numbers(sieving_table, factor_base, threshold)
+                factored_smooth_nums = factored_smooth_nums + [(off_set, factored_dict) for off_set, factored_dict in smooth_number_dict.items()]
+                x_start = x_start + block_size
+
+            parity_matrix = []
+            for _, factor_dict in factored_smooth_nums:
+                row = [factor_dict[p] % 2 for p in factor_base]
+                parity_matrix.append(row)    
+            
+            M = Matrix(parity_matrix)
+            # We need the Nullspace of the TRANSPOSE.
+            # We want to find a combination of ROWS that sums to zero. 
+            # M.T * v = 0  <==>  v * M = 0
+            null_basis = M.T.nullspace()
+        #    print(f"Found {len(null_basis)} linear dependencies.")
+
+            for i, basis_vec in enumerate(null_basis):
+                # SymPy returns vectors with GF(2) elements, convert to standard int list
+                dep_vec = [int(x) for x in basis_vec]
+                
+                # Check if this dependency yields a factor
+                factor = try_dependency(dep_vec, factored_smooth_nums, factor_base, N)
+                
+                if factor > 1 and factor < N:
+                    p = factor
+                    q = N // factor
+                    factored_numbers[N] = [p, q]
+                    break
+
+            end_time = time.perf_counter()
+            duration = end_time - start_time
+
+            total_time_taken_per_number[N] = total_time_taken_per_number[N] + duration
         
-        # Check if this dependency yields a factor
-        factor = try_dependency(dep_vec, factored_smooth_nums, factor_base, N)
-        
-        if factor > 1 and factor < N:
-            print("---------------------------------------")
-            print(f"SUCCESS! N = {N}")
-            print(f"Factors found: {factor} * {N // factor}")
-            print("---------------------------------------")
-            break
-    else:
-        print("Dependencies found, but all were trivial (X = +/- Y).")
-        print("Try increasing the 'number_of_needed_relations' or 'block_size'.")
-        
+        print(f"N: {N}, p and q: {factored_numbers[N]}\n")
+        with open("quadratic_sieve_analyze_logs.txt", "a") as f:
+            log = (
+                f"Number to be factored: {N}\n"
+                f"Beta: {beta}\n"
+                f"Sieving Block Size: {block_size}\n"
+                f"Length of the factor base: {len(factor_base)}\n"
+                f"Number of needed relations: {number_of_needed_relations}\n"
+                f"Smooth threshold: {threshold:.2f}\n"
+                f"Shape of the parity matrix: {(len(parity_matrix), len(parity_matrix[0]))}\n"
+                f"p and q: {factored_numbers[N]}\n"
+                f"Average time taken: {(total_time_taken_per_number[N] / number_of_tests):.4f}s\n"
+                f"-----------------------------\n"
+            )
+            print(log)
+            f.write(log)
+            

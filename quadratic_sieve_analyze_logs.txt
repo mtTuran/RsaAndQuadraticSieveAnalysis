@@ -1,0 +1,31 @@
+Number of Tests performed on each number: 100
+-----------------------------Number to be factored: 643020317
+Beta: 200
+Sieving Block Size: 100000
+Length of the factor base: 26
+Number of needed relations: 31
+Smooth threshold: 7.95
+Shape of the parity matrix: (467, 26)
+p and q: [25117, 25601]
+Average time taken: 0.5862s
+-----------------------------
+Number to be factored: 17187209159
+Beta: 200
+Sieving Block Size: 100000
+Length of the factor base: 26
+Number of needed relations: 31
+Smooth threshold: 7.95
+Shape of the parity matrix: (227, 26)
+p and q: [131071, 131129]
+Average time taken: 0.4416s
+-----------------------------
+Number to be factored: 68720000989
+Beta: 200
+Sieving Block Size: 100000
+Length of the factor base: 31
+Number of needed relations: 36
+Smooth threshold: 7.95
+Shape of the parity matrix: (392, 31)
+p and q: [262139, 262151]
+Average time taken: 0.5810s
+-----------------------------

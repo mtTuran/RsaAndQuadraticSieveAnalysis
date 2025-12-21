@@ -42,7 +42,7 @@ if __name__ == '__main__':
             f.write(private_key_pem)
 
         log = f"The keys for '{key_id}' has been saved.\nKey Size: {key_size} bits.\
-            \ne Size: {new_rsa_key.e.bit_length()} bit.\nd Size: {new_rsa_key.d.bit_length()} bit.\n"
+            \ne Size: {new_rsa_key.e.bit_length()} bit.\nd Size: {new_rsa_key.d.bit_length()} bit.\nd: {d}\n"
 
         print(log)
         with open("key_gen_logs.txt", "a") as f:

@@ -183,6 +183,7 @@ def try_dependency(dep_vec, factored_smooth_nums, factor_base, N):
 
 
 if __name__ == '__main__':
+    # additional [1009840030511, 1053162679916481, 2497964535786067, 10000004400000259, 1000000016000000063]
     numbers_to_be_factored = [643020317, 17187209159, 68720000989]
     number_of_tests = 100
     total_time_taken_per_number = {N: 0 for N in numbers_to_be_factored}

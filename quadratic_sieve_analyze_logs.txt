@@ -7,7 +7,7 @@ Number of needed relations: 31
 Smooth threshold: 7.95
 Shape of the parity matrix: (467, 26)
 p and q: [25117, 25601]
-Average time taken: 0.5862s
+Average time taken: 0.4372s
 -----------------------------
 Number to be factored: 17187209159
 Beta: 200
@@ -17,7 +17,7 @@ Number of needed relations: 31
 Smooth threshold: 7.95
 Shape of the parity matrix: (227, 26)
 p and q: [131071, 131129]
-Average time taken: 0.4416s
+Average time taken: 0.3429s
 -----------------------------
 Number to be factored: 68720000989
 Beta: 200
@@ -27,5 +27,5 @@ Number of needed relations: 36
 Smooth threshold: 7.95
 Shape of the parity matrix: (392, 31)
 p and q: [262139, 262151]
-Average time taken: 0.5810s
+Average time taken: 0.6405s
 -----------------------------

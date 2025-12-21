@@ -6,7 +6,7 @@ from Crypto.Util.number import bytes_to_long
 CHUNK_SIZE = 3 
 BLOCK_SIZE = 5 
 NUMBER_OF_TESTS_SHORT_MESSAGES = 1000
-NUMBER_OF_TESTS_LONG_MESSAGES = 100
+NUMBER_OF_TESTS_LONG_MESSAGES = 1000
 
 def encrypt(key, message_str):
     if isinstance(message_str, str):

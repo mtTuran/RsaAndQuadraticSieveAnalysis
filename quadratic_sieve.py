@@ -37,18 +37,6 @@ def factor_and_check_smoothness(Q, factor_base):
             factor_dict[p] = factor_dict[p] + 1
     return factor_dict, Q == 1
 
-def compute_bound(N):
-    # B = exp((1/2 + o(1)) * sqrt(log(N) * log(log(N)))) where o(1) is assumed 0
-
-    ln_n = math.log(N)       
-    ln_ln_n = math.log(ln_n)
-
-    root_term = math.sqrt(ln_n * ln_ln_n)
-    coefficient = 0.5
-    B = math.exp(coefficient * root_term)
-
-    return max(int(B), 200)
-
 def compute_Q_function(sqrt_n, step_size, N):
     return ((sqrt_n + step_size)**2) - N
 
@@ -194,8 +182,8 @@ if __name__ == '__main__':
         print(log)
         f.write(log)
 
+    beta = 200                                       # smoothness factor
     for N in numbers_to_be_factored:
-        beta = compute_bound(N)                                         # smoothness factor
         print(f"Performing {number_of_tests} tests for the number '{N}' with a smoothness factor B: {beta}.")
 
         for _ in range(number_of_tests):

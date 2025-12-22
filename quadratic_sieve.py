@@ -1,5 +1,6 @@
 import math
-from sympy import Matrix, GF
+from sympy import GF
+from sympy.polys.matrices import DomainMatrix
 import time
 
 
@@ -14,15 +15,15 @@ def is_prime(n):
         return False
 
     sqrt_n = n ** (1/2)
-    for i in range(2, int(sqrt_n) + 1): # Check divisibility from 2 to √n
+    for i in range(2, int(sqrt_n) + 1): # Check divisibility from 2 to sqrt n
         if n % i == 0:
             return False
         
     return True
 
 def check_euler_criterion(n, p):
-    # Euler's Criterion: Calculate N^((p-1)/2) mod p
-    # If result is 1, N is a quadratic residue.
+    # Euler's Criterion: Calculate n^((p-1)/2) mod p
+    # If result is 1, n is a quadratic residue.
     euler_val = pow(n, (p - 1) // 2, p)
     if euler_val == 1:
         return True
@@ -106,13 +107,6 @@ def precompute_roots(N, factor_base):
         root_table[p] = roots
 
     return root_table
-
-def find_roots(N, p, sqrt_n):
-    r1, r2 = tonelli_shanks(N % p, p)
-    return [
-        (r1 - sqrt_n) % p,
-        (r2 - sqrt_n) % p
-    ]
     
 def sieve_range(x_start, x_end, N, factor_base, root_table):
     sqrt_n = math.ceil(N**0.5)
@@ -152,7 +146,7 @@ def try_dependency(dep_vec, factored_smooth_nums, factor_base, N):
 
     for i, bit in enumerate(dep_vec):
         if bit == 1:
-            x_i, factor_dict = factored_smooth_nums[i]
+            x_i, factor_dict = factored_smooth_nums[i]  # offset from sqrt N, factored version of Q value
 
             # Build X
             X = (X * (sqrt_n + x_i)) % N
@@ -164,7 +158,7 @@ def try_dependency(dep_vec, factored_smooth_nums, factor_base, N):
     # Build Y
     Y = 1
     for p, exp in prime_exp_sum.items():
-        Y *= p ** (exp // 2)
+        Y = (Y * pow(p, exp // 2, N)) % N
 
     g = gcd(abs(X - Y) % N, N)
     return g
@@ -173,7 +167,7 @@ def try_dependency(dep_vec, factored_smooth_nums, factor_base, N):
 if __name__ == '__main__':
     # additional [1009840030511, 1053162679916481, 2497964535786067, 10000004400000259, 1000000016000000063]
     numbers_to_be_factored = [643020317, 17187209159, 68720000989]
-    number_of_tests = 100
+    number_of_tests = 1
     total_time_taken_per_number = {N: 0 for N in numbers_to_be_factored}
     factored_numbers = {N: [] for N in numbers_to_be_factored}
 
@@ -182,9 +176,10 @@ if __name__ == '__main__':
         print(log)
         f.write(log)
 
-    beta = 200                                       # smoothness factor
+    beta = 100                                                         # smoothness factor
     for N in numbers_to_be_factored:
         print(f"Performing {number_of_tests} tests for the number '{N}' with a smoothness factor B: {beta}.")
+        current_total_time = 0
 
         for _ in range(number_of_tests):
             start_time = time.perf_counter()            
@@ -194,8 +189,8 @@ if __name__ == '__main__':
 
             factor_base = get_factor_base(beta, N)                      # factor base
             root_table = precompute_roots(N, factor_base)               # sieving roots for each prime
-            number_of_needed_relations = len(factor_base) + 5          # heuristic for the number of needed smooth nums
-            threshold = math.log(beta) * 1.5                            # heuristic for the smooth number detection via sieving
+            number_of_needed_relations = len(factor_base) + 5           # heuristic for the number of needed smooth nums
+            threshold = 1                                               # filter threshold for smoothness check
 
             factored_smooth_nums = []
             while len(factored_smooth_nums) < number_of_needed_relations:
@@ -209,17 +204,14 @@ if __name__ == '__main__':
                 row = [factor_dict[p] % 2 for p in factor_base]
                 parity_matrix.append(row)    
             
-            M = Matrix(parity_matrix)
-            # We need the Nullspace of the TRANSPOSE.
-            # We want to find a combination of ROWS that sums to zero. 
-            # M.T * v = 0  <==>  v * M = 0
-            null_basis = M.T.nullspace()
-        #    print(f"Found {len(null_basis)} linear dependencies.")
-
+            M = DomainMatrix.from_list(parity_matrix, domain=GF(2)) 
+            null_space_matrix = M.transpose().nullspace()           # to get the combination of rows that sums to zero, transpose
+            null_basis = null_space_matrix.to_list()                # len of the null basis is the number of founded dependencies 
+                                                                    # each row of the null basis marks the relations as 1 if that-
+                                                                    # -relation is included in the solution
             for i, basis_vec in enumerate(null_basis):
-                # SymPy returns vectors with GF(2) elements, convert to standard int list
                 dep_vec = [int(x) for x in basis_vec]
-                
+
                 # Check if this dependency yields a factor
                 factor = try_dependency(dep_vec, factored_smooth_nums, factor_base, N)
                 
@@ -232,7 +224,7 @@ if __name__ == '__main__':
             end_time = time.perf_counter()
             duration = end_time - start_time
 
-            total_time_taken_per_number[N] = total_time_taken_per_number[N] + duration
+            current_total_time = current_total_time + duration
         
         print(f"N: {N}, p and q: {factored_numbers[N]}\n")
         with open("quadratic_sieve_analyze_logs.txt", "a") as f:
@@ -244,8 +236,9 @@ if __name__ == '__main__':
                 f"Number of needed relations: {number_of_needed_relations}\n"
                 f"Smooth threshold: {threshold:.2f}\n"
                 f"Shape of the parity matrix: {(len(parity_matrix), len(parity_matrix[0]))}\n"
+                f"Shape of the null basis: {(len(null_basis), len(null_basis[0]) if null_basis else 0)}\n"
                 f"p and q: {factored_numbers[N]}\n"
-                f"Average time taken: {(total_time_taken_per_number[N] / number_of_tests):.4f}s\n"
+                f"Average time taken: {(current_total_time/number_of_tests):.4f}s\n"
                 f"-----------------------------\n"
             )
             print(log)

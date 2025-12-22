@@ -1,2 +1,12 @@
-Number of Tests performed on each number: 100
+Number of Tests performed on each number: 1
+-----------------------------Number to be factored: 643020317
+Beta: 100
+Sieving Block Size: 100000
+Length of the factor base: 14
+Number of needed relations: 19
+Smooth threshold: 1.00
+Shape of the parity matrix: (19, 14)
+Shape of the null basis: (7, 19)
+p and q: [25601, 25117]
+Average time taken: 0.6740s
 -----------------------------

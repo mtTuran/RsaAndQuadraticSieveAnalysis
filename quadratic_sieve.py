@@ -176,7 +176,8 @@ if __name__ == '__main__':
         print(log)
         f.write(log)
 
-    beta = 100                                                         # smoothness factor
+    beta = 150                                                         # smoothness factor
+    threshold = 1                                                      # filter threshold for smoothness check
     for N in numbers_to_be_factored:
         print(f"Performing {number_of_tests} tests for the number '{N}' with a smoothness factor B: {beta}.")
         current_total_time = 0
@@ -190,7 +191,6 @@ if __name__ == '__main__':
             factor_base = get_factor_base(beta, N)                      # factor base
             root_table = precompute_roots(N, factor_base)               # sieving roots for each prime
             number_of_needed_relations = len(factor_base) + 5           # heuristic for the number of needed smooth nums
-            threshold = 1                                               # filter threshold for smoothness check
 
             factored_smooth_nums = []
             while len(factored_smooth_nums) < number_of_needed_relations:
